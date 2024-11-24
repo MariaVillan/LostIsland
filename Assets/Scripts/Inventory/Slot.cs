@@ -22,13 +22,26 @@ public class Slot : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPoin
 
     private void Start()
     {
-        dragDropHandler = GetComponentInParent<DragDropHandler>();
+        dragDropHandler = GetComponentInParent<Player>().GetComponentInChildren<DragDropHandler>();
+        inventory = GetComponentInParent<Player>().GetComponentInChildren<InventoryManager>();
         UpdateSlot();
-        inventory = GetComponentInParent<InventoryManager>();
+
     }
 
     public void UpdateSlot()
     {
+        if (data != null)
+        {
+            if(data.itemType != ItemsSO.ItemType.Weapon)
+            {
+                if (stackSize <= 0)
+                {
+                    data = null;
+                }
+            }
+        }   
+
+
         if (data == null)
         {
             isEmpty = true;
@@ -75,12 +88,33 @@ public class Slot : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPoin
     {
         if (!dragDropHandler.isDragging)
         {
-            if (eventData.button == PointerEventData.InputButton.Left)
+            if (eventData.button == PointerEventData.InputButton.Left && !isEmpty)
             {
                dragDropHandler.slotDraggedFrom = this;
                dragDropHandler.isDragging = true; 
             }
         }
+    }
+
+    public void Try_Use()
+    {
+        if(data == null)
+        return;
+
+        if(data.itemType == ItemsSO.ItemType.Consumable)
+        Consume();
+    }
+
+    public void Consume()
+    {
+        PlayerStats stats = GetComponentInParent<PlayerStats>();
+        stats.health += data.healthChange;
+        stats.hunger += data.hungerChange;
+        stats.thirst += data.thirstChange;
+
+        stackSize--;
+
+        UpdateSlot();
     }
 
     public void OnPointerEnter(PointerEventData eventData)

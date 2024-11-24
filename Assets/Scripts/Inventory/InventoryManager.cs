@@ -1,6 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Security.Cryptography;
 using UnityEngine;
+using UnityEngine.Android;
 
 public class InventoryManager : MonoBehaviour
 {
@@ -9,23 +11,38 @@ public class InventoryManager : MonoBehaviour
 
    [Header("Settings")]
    public int inventorySize = 24;
-
+   public int hotbarSize = 6;
 
    [Header ("Refs")]
    public GameObject dropModel;
    public Transform dropPos;
    public GameObject slotTemplate;
    public Transform contentHolder;
+   public Transform hotbarContentHolder;
 
    private Slot[] inventorySlots;
-   [SerializeField] private Slot[] allSlots;
+   private Slot[] hotbarSlots;
 
    private void Start()
    {
     GenerateSlots();
+    GenerateHotbarSlots();
    }
    private void Update()
    {
+        if(Input.GetKeyDown(KeyCode.Alpha1))
+            hotbarSlots[0].Try_Use();
+        if(Input.GetKeyDown(KeyCode.Alpha2))
+            hotbarSlots[1].Try_Use();
+        if(Input.GetKeyDown(KeyCode.Alpha3))
+            hotbarSlots[2].Try_Use();
+        if(Input.GetKeyDown(KeyCode.Alpha4))
+            hotbarSlots[3].Try_Use();
+        if(Input.GetKeyDown(KeyCode.Alpha5))
+            hotbarSlots[4].Try_Use();
+        if(Input.GetKeyDown(KeyCode.Alpha6))
+            hotbarSlots[5].Try_Use();
+
         if(Input.GetKeyDown(inventoryKey))
             opened = !opened;
 
@@ -39,33 +56,96 @@ public class InventoryManager : MonoBehaviour
         }
    }
 
-
    private void  GenerateSlots()
    {
         List<Slot> inventorySlots_ = new List<Slot>();
-        List<Slot> allSlots_ = new List<Slot>();
-    //OBTIENE LOS SLOTS DEL ARRAY
-
-        for (int i = 0; i <allSlots.Length; i++)
-        {
-            allSlots_.Add(allSlots[i]);
-        }
+    
     //GENERA LOS SLOTS
         for (int i = 0; i < inventorySize; i++)
         {
             Slot slot = Instantiate(slotTemplate.gameObject, contentHolder). GetComponent<Slot>();
             inventorySlots_.Add(slot);
-            allSlots_.Add(slot);
         }
 
         inventorySlots = inventorySlots_.ToArray();
-        allSlots = allSlots_.ToArray();
+   }
+
+     private void  GenerateHotbarSlots()
+   {
+        List<Slot> inventorySlots_ = new List<Slot>();
+        List<Slot> hotbarList = new List<Slot>();
+    
+    //GENERA LOS SLOTS
+        for (int i = 0; i < hotbarSize; i++)
+        {
+            Slot slot = Instantiate(slotTemplate.gameObject, hotbarContentHolder). GetComponent<Slot>();
+
+            inventorySlots_.Add(slot);
+            hotbarList.Add(slot);
+
+        }
+
+        inventorySlots = inventorySlots_.ToArray();
+        hotbarSlots = hotbarList.ToArray();
    }
 
    public void DragDrop(Slot from, Slot to)
    {
+    //SWAPING
+    if(from.data != to.data){
+       ItemsSO data = to.data;
+       int stackSize = to.stackSize;
+       
+       to.data = from.data;
+       to.stackSize = stackSize;
+
+       from.data = data;
+       from.stackSize= stackSize;
+    }
+    //stacking
+else
+{
+    if (from.data.isStackable)
+    {
+        // Suma el total de los stacks
+        int totalStack = from.stackSize + to.stackSize;
+
+        if (totalStack > from.data.maxStack)
+        {
+            // Si el total excede el límite, llena el destino al máximo
+            int excess = totalStack - from.data.maxStack;
+
+            to.stackSize = from.data.maxStack;
+            from.stackSize = excess;
+        }
+        else
+        {
+            // Si cabe todo, transfiere al destino y limpia el origen
+            to.stackSize = totalStack;
+            to.data = from.data; // Asegúrate de que se actualice la data si `to` estaba vacío
+
+            from.Clean(); // Vacía el slot origen
+        }
+    }
+    else
+    {
+        // Si no es apilable, simplemente intercambia los datos (como swapping)
+        ItemsSO data = to.data;
+        int stackSize = to.stackSize;
+
+        to.data = from.data;
+        to.stackSize = from.stackSize;
+
+        from.data = data;
+        from.stackSize = stackSize;
+    }
+}
+
+    from.UpdateSlot();
+    to.UpdateSlot();
     
    }
+   
 
     public void AddItem(Pickup pickUp)
     {
@@ -96,7 +176,6 @@ public class InventoryManager : MonoBehaviour
                     int amountLeft = (stackableSlot.stackSize + pickUp.stackSize) - pickUp.data.maxStack;
 
 
-
                     // ADD IT TO THE STACKABLE SLOT
                     stackableSlot.AddItemToSlot(pickUp.data, pickUp.data.maxStack);
 
@@ -111,7 +190,6 @@ public class InventoryManager : MonoBehaviour
                             break;
                         }
                     }
-
 
 
                     Destroy(pickUp.gameObject);
@@ -129,7 +207,6 @@ public class InventoryManager : MonoBehaviour
             else
             {
                 Slot emptySlot = null;
-
 
                 // FIND EMPTY SLOT
                 for (int i = 0; i < inventorySlots.Length; i++)
@@ -160,7 +237,6 @@ public class InventoryManager : MonoBehaviour
         {
             Slot emptySlot = null;
 
-
             // FIND EMPTY SLOT
             for (int i = 0; i < inventorySlots.Length; i++)
             {
@@ -187,13 +263,16 @@ public class InventoryManager : MonoBehaviour
         }
     }
 
-    public void DropItem(Slot slot)
+       public void DropItem(Slot slot)
     {
         Pickup pickup = Instantiate(dropModel, dropPos).AddComponent<Pickup>();
+        pickup.transform.position = dropPos.position;
+        pickup.transform.SetParent(null);
 
         pickup.data = slot.data;
         pickup.stackSize = slot.stackSize;
 
         slot.Clean();
     }
+
 }
